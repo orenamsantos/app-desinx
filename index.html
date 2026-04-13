@@ -1571,10 +1571,33 @@ const RESULT_ESTIMATES = {
 
 const AUTH_KEY = 'desinx_auth';
 const USERS_KEY = 'desinx_users';
+const ACCESS_TOKEN = 'DESINX2024ACCESS'; // token secreto — mude quando quiser revogar acessos
+const TOKEN_KEY = 'desinx_token_valid';
 let appState = null;
 let currentView = 'home';
 let currentUser = null;
 let authScreen = 'login';
+
+/* ============ CONTROLE DE ACESSO ============ */
+function checkAccessToken() {
+  // Verifica se já validou o token antes neste dispositivo
+  if (localStorage.getItem(TOKEN_KEY) === 'true') return true;
+  // Verifica se o token veio na URL
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  if (token === ACCESS_TOKEN) {
+    localStorage.setItem(TOKEN_KEY, 'true');
+    // Limpa o token da URL sem recarregar a página
+    const cleanUrl = window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+    return true;
+  }
+  return false;
+}
+
+function canRegister() {
+  return checkAccessToken();
+}
 
 /* ============ 0. AUTH SYSTEM ============ */
 
@@ -1782,7 +1805,10 @@ function renderLogin() {
       <button class="btn-primary btn-large" onclick="handleLogin()">Entrar</button>
     </div>
     <div class="auth-divider"><span>ou</span></div>
-    <button class="btn-secondary" onclick="authScreen='register';render()">Criar conta gratuita</button>
+    ${canRegister()
+      ? `<button class="btn-secondary" onclick="authScreen='register';render()">Criar conta gratuita</button>`
+      : `<p style="text-align:center;font-size:13px;color:var(--text-3);padding:12px 0;line-height:1.6">Para criar uma conta, acesse o link<br>recebido após sua compra.</p>`
+    }
     <p class="auth-footer">Seus dados ficam salvos com segurança no seu dispositivo.</p>
   </div>`;
 }
@@ -1813,6 +1839,11 @@ function handleLogin() {
 }
 
 function handleRegister() {
+  // Segurança extra: bloqueia registro sem token mesmo por acesso direto
+  if (!canRegister()) {
+    showAuthError('Acesso não autorizado. Compre o Protocolo Desinx para criar uma conta.');
+    return;
+  }
   const pw=document.getElementById('regPassword')?.value, pw2=document.getElementById('regPassword2')?.value;
   if(pw!==pw2){showAuthError('As senhas não coincidem');return;}
   const r=registerUser(document.getElementById('regName')?.value, document.getElementById('regEmail')?.value, pw);
